@@ -23,9 +23,11 @@ import (
 
 type Report struct {
 	Addrs     []string
-	Client    string
+	ClusterID int
 	Network   string
+	NodeID    string
 	Peers     int
+	ProcessID int
 	Streams   []string
 	Timestamp int64
 	Version   string
@@ -86,25 +88,28 @@ func graph(reports map[string]Report, lock *sync.Mutex, ttl time.Duration) http.
 
 		threshold := time.Now().Add(-ttl).Unix()
 
-		for client, report := range reports {
+		for id, report := range reports {
 
 			if report.Timestamp < threshold {
-				delete(reports, client)
+				delete(reports, id)
 				continue
 			}
 
 			nodes = append(nodes, map[string]interface{}{
-				"addrs":   report.Addrs,
-				"id":      client,
-				"network": report.Network,
-				"peers":   report.Peers,
-				"streams": len(report.Streams),
-				"version": report.Version,
+				"Addrs":     report.Addrs,
+				"ClusterID": report.ClusterID,
+				"Network":   report.Network,
+				"NodeID":    report.NodeID,
+				"Peers":     report.Peers,
+				"ProcessID": report.ProcessID,
+				"Streams":   len(report.Streams),
+				"Timestamp": report.Timestamp,
+				"Version":   report.Version,
 			})
 
 			for i := range report.Streams {
 				links = append(links, map[string]interface{}{
-					"source": client,
+					"source": report.NodeID,
 					"target": report.Streams[i],
 				})
 			}
@@ -150,7 +155,7 @@ func report(reports map[string]Report, lock *sync.Mutex) http.HandlerFunc {
 		}
 
 		report.Timestamp = time.Now().Unix()
-		reports[report.Client] = report
+		reports[report.NodeID] = report
 
 	}
 

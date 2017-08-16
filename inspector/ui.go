@@ -23,6 +23,7 @@ var HTML = []byte(`<!DOCTYPE html>
 			background-color: #222222;
 			color: white;
 			font-family: monospace;
+			font-size: 14px;
 			margin: 0;
 			overflow: hidden;
 			padding: 0;
@@ -72,7 +73,7 @@ var HTML = []byte(`<!DOCTYPE html>
 
 		<!-- Logo -->
 		<div class="container">
-			<img class="logo" src="https://s3-us-west-2.amazonaws.com/dfinity/images/dfinity-logo-large.png"></img>
+			<img class="logo" src="https://s3-us-west-2.amazonaws.com/dfinity/images/dfinity-logo-large.png">
 		</div>
 
 		<!-- D3 -->
@@ -107,7 +108,7 @@ var HTML = []byte(`<!DOCTYPE html>
 				var color = d3.scaleOrdinal(d3.schemeCategory20);
 
 				var simulation = d3.forceSimulation()
-					.force('link', d3.forceLink().id(function(d) { return d.id; }))
+					.force('link', d3.forceLink().id(function(d) { return d.NodeID; }))
 					.force('charge', d3.forceManyBody())
 					.force('center', d3.forceCenter(width / 2, height / 2));
 
@@ -130,9 +131,12 @@ var HTML = []byte(`<!DOCTYPE html>
 						contentType: 'html',
 						loop: false,
 						loopCount: false,
-						restart: true,
+						onComplete: function() {
+							$('.typed-cursor').css('display', 'none')
+						},
+						restart: false,
 						strings: [
-							'ID: ' +d.id + '<br/>Addresses:<br/>' + d.addrs.join('<br/>') + '<br/>Peers: ' + d.peers + '<br/>Streams: ' + d.streams + '<br/>Network: ' + d.network + '<br/>Version: ' + d.version
+							'ClusterID: ' + d.ClusterID + '<br/>ProcessID: ' + d.ProcessID + '<br/>NodeID: ' + d.NodeID + '<br/>Addresses:<br/>- ' + d.Addrs.join('<br/>- ') + '<br/>Peers: ' + d.Peers + '<br/>Streams: ' + d.Streams + '<br/>Network: ' + d.Network + '<br/>Version: ' + d.Version
 						],
 						typeSpeed: 0,
 					});
@@ -188,7 +192,6 @@ var HTML = []byte(`<!DOCTYPE html>
 						.attr('r', 5)
 						.attr('fill', function(d, i) { return color(i); })
 						.on('mouseover', mouseover)
-						.on('mouseout', mouseout)
 						.call(d3.drag()
 							.on('start', start)
 							.on('drag', drag)
