@@ -81,7 +81,7 @@ var HTML = []byte(`<!DOCTYPE html>
 
 		<!-- Scripts -->
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.min.js" type="text/javascript"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/4.10.0/d3.min.js" type="text/javascript">></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/4.10.0/d3.min.js" type="text/javascript"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/typed.js/2.0.5/typed.min.js" type="text/javascript"></script>
 		<script>
 		(function($) {
