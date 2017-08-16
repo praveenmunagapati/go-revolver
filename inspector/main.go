@@ -18,26 +18,33 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 )
 
-type Vertex struct {
-	Client string
-	Peers  []string
+type Report struct {
+	Addrs     []string
+	Client    string
+	Network   string
+	Peers     int
+	Streams   []string
+	Timestamp int64
+	Version   string
 }
 
 func main() {
 
 	log.Println("Parsing command-line arguments ...")
 	port := flag.Uint64("port", 8080, "Port that the network topology inspector listens on.")
+	ttl := flag.Duration("ttl", 90*time.Second, "Time until analytics reports are discarded.")
 	flag.Parse()
 
-	dstore := make(map[string][]string)
+	reports := make(map[string]Report)
 	lock := &sync.Mutex{}
 
 	log.Println("Registering request handlers ...")
 	http.HandleFunc("/", index())
-	http.HandleFunc("/graph", graph(dstore, lock))
-	http.HandleFunc("/report", report(dstore, lock))
+	http.HandleFunc("/graph", graph(reports, lock, *ttl))
+	http.HandleFunc("/report", report(reports, lock))
 
 	log.Println("Registering termination signal handler ...")
 	shutdown := make(chan os.Signal, 1)
@@ -67,7 +74,7 @@ func index() http.HandlerFunc {
 }
 
 // Serve the graph data.
-func graph(dstore map[string][]string, lock *sync.Mutex) http.HandlerFunc {
+func graph(reports map[string]Report, lock *sync.Mutex, ttl time.Duration) http.HandlerFunc {
 
 	return func(resp http.ResponseWriter, req *http.Request) {
 
@@ -77,23 +84,37 @@ func graph(dstore map[string][]string, lock *sync.Mutex) http.HandlerFunc {
 		var nodes []map[string]interface{}
 		var links []map[string]interface{}
 
-		for client, peers := range dstore {
-			node := make(map[string]interface{})
-			node["id"] = client
-			nodes = append(nodes, node)
-			for i := range peers {
-				link := make(map[string]interface{})
-				link["source"] = client
-				link["target"] = peers[i]
-				links = append(links, link)
+		threshold := time.Now().Add(-ttl).Unix()
+
+		for client, report := range reports {
+
+			if report.Timestamp < threshold {
+				delete(reports, client)
+				continue
 			}
+
+			nodes = append(nodes, map[string]interface{}{
+				"addrs":   report.Addrs,
+				"id":      client,
+				"network": report.Network,
+				"peers":   report.Peers,
+				"streams": len(report.Streams),
+				"version": report.Version,
+			})
+
+			for i := range report.Streams {
+				links = append(links, map[string]interface{}{
+					"source": client,
+					"target": report.Streams[i],
+				})
+			}
+
 		}
 
-		object := make(map[string]interface{})
-		object["nodes"] = nodes
-		object["links"] = links
-
-		js, err := json.Marshal(object)
+		data, err := json.Marshal(map[string]interface{}{
+			"nodes": nodes,
+			"links": links,
+		})
 		if err != nil {
 			log.Printf("Cannot encode graph: \033[1;31m%s\033[0m\n", err.Error())
 			http.Error(resp, "500 Internal Server Error", http.StatusInternalServerError)
@@ -103,14 +124,14 @@ func graph(dstore map[string][]string, lock *sync.Mutex) http.HandlerFunc {
 		header := resp.Header()
 		header.Set("Content-Type", "application/json")
 
-		resp.Write(js)
+		resp.Write(data)
 
 	}
 
 }
 
 // Report connections.
-func report(dstore map[string][]string, lock *sync.Mutex) http.HandlerFunc {
+func report(reports map[string]Report, lock *sync.Mutex) http.HandlerFunc {
 
 	return func(resp http.ResponseWriter, req *http.Request) {
 
@@ -120,15 +141,16 @@ func report(dstore map[string][]string, lock *sync.Mutex) http.HandlerFunc {
 		decoder := json.NewDecoder(req.Body)
 		defer req.Body.Close()
 
-		var vertex Vertex
-		err := decoder.Decode(&vertex)
+		var report Report
+		err := decoder.Decode(&report)
 		if err != nil {
-			log.Printf("Cannot decode vertex: \033[1;31m%s\033[0m\n", err.Error())
+			log.Printf("Cannot decode report: \033[1;31m%s\033[0m\n", err.Error())
 			http.Error(resp, "400 Bad Request", http.StatusBadRequest)
 			return
 		}
 
-		dstore[vertex.Client] = vertex.Peers
+		report.Timestamp = time.Now().Unix()
+		reports[report.Client] = report
 
 	}
 
