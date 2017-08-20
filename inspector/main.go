@@ -83,8 +83,8 @@ func graph(reports map[string]Report, lock *sync.Mutex, ttl time.Duration) http.
 		lock.Lock()
 		defer lock.Unlock()
 
-		var nodes []map[string]interface{}
-		var links []map[string]interface{}
+		nodes := make([]map[string]interface{}, 0)
+		links := make([]map[string]interface{}, 0)
 
 		threshold := time.Now().Add(-ttl).Unix()
 
